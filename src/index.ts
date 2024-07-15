@@ -247,7 +247,7 @@ async function main() {
 
     while (true) {
         await humanLikeScroll(page);
-        await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
+        await page.waitForNetworkIdle({ timeout: 3000 }).catch(() => {});
         // Find all profile links on the current search page
         const profileLinks = await page.evaluate(() => {
             const links = Array.from(document.querySelectorAll("div[data-testid='primaryColumn'] a[role='link']"));
@@ -282,17 +282,38 @@ async function main() {
         await profilePage.goto(linkToClick);
         await randomPause(1000, 3000);
 
+        // const username = new URL(linkToClick).pathname.substring(1);
+
+        // const followerCountStr = await profilePage.evaluate((username) => {
+        //     const followerElement = document.querySelector(`a[href='/${username}/verified_followers'] span`);
+        //     return followerElement ? (followerElement as HTMLElement).innerText : null;
+        // }, username);
+        
+        // console.log(followerCountStr);
+
+        
+
+        
+       
+
         try {
+
+      
+
+    
             let msgBtn = await profilePage.waitForSelector(
                 "button[data-testid='sendDMFromProfile']",
                 { timeout: 5000 }
             );
-
-                    
             if (!msgBtn) {
                 console.log("Message button not found");
                 throw new Error("Message button not found");
             }
+            // You might want to do something with msgBtn here
+    
+
+
+                
 
             const box = await msgBtn.boundingBox();
 
@@ -307,6 +328,7 @@ async function main() {
 
             let msgPage = await browser.newPage();
             await msgPage.goto(profilePage.url());
+            console.log("Message button clicked");
 
             try {
                 let elem = await msgPage.waitForSelector(
@@ -371,7 +393,7 @@ async function main() {
         }
 
         // Simulate random browsing time on the search page
-        const randomBrowseTime = Math.floor(Math.random() * (10000 - 3000 + 1) + 5000); // Random time between 5-30 seconds
+        const randomBrowseTime = Math.floor(Math.random() * (10000 - 3000 + 1) + 2000); // Random time between 5-30 seconds
         console.log(`Browsing search page for ${randomBrowseTime / 1000} seconds`);
         await new Promise(resolve => setTimeout(resolve, randomBrowseTime));
     }
