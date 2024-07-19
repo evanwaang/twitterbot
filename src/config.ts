@@ -4,8 +4,8 @@ interface Config{
 }
 
 let config: Config = {
-    searchQuery: "#scalping",
-    message: "Hey! my name is Evan, hows trading been for you?"
+    searchQuery: "#Bitget",
+    message: "hey my name is Evan and I’m from the partnerships team at WEEX Global. Have you heard of our exchange before?"
 }
 
 export default config
