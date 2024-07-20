@@ -2,7 +2,7 @@ import { randomPause } from "./randompause";
 
 export async function humanLikeScroll(page: any) {
     await page.evaluate(() => {
-        const distance = Math.floor(Math.random() * window.innerHeight * 0.7) + window.innerHeight * 0.3;
+        const distance = Math.floor(Math.random() * window.innerHeight * 0.7) + window.innerHeight * 0.1;
         const duration = Math.floor(Math.random() * 1000) + 500;
         let scrolled = 0;
         const timer = setInterval(() => {

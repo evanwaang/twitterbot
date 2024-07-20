@@ -2,7 +2,12 @@ import puppeteer from "puppeteer-extra";
 import { readFile } from "fs/promises";
 import { Protocol, ElementHandle } from "puppeteer";
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+import { randomPause } from "./utils/randompause";
+import { humanLikeScroll } from "./utils/scroll";
+import { nextPage } from "./utils/nextPage";
 import config from "./config";
+
+import { isLinkVisited, saveVisitedProfile, loadVisitedProfiles } from "./utils/checkProfiles";
 
 puppeteer.use(StealthPlugin());
 const args = [
@@ -22,38 +27,20 @@ const options = {
 
 async function main() {
 
-    const randomPause = async (min: number, max: number) => {
-        const pause = Math.floor(Math.random() * (max - min + 1) + min);
-        await new Promise(resolve => setTimeout(resolve, pause));
-    };
-
-    const humanLikeScroll = async (page: any) => {
-        await page.evaluate(() => {
-            const distance = Math.floor(Math.random() * window.innerHeight * 0.7) + window.innerHeight * 0.3;
-            const duration = Math.floor(Math.random() * 1000) + 500;
-            let scrolled = 0;
-            const timer = setInterval(() => {
-                window.scrollBy(0, 10);
-                scrolled += 10;
-                if (scrolled >= distance) clearInterval(timer);
-            }, duration / (distance / 10));
-        });
-        await randomPause(500, 1500);
-    };
-
-    // launch browser
+    // launch browser and block all images 
     const browser = await puppeteer.launch(options);
     let cookies = await readFile("cookies.json", {
         encoding: "utf8",
     });
     let cookieJson: Protocol.Network.CookieParam[] = JSON.parse(cookies);
     let page = await browser.newPage();
+
+
     await page.setViewport({ width: 1200, height: 720 });
     await page.setCookie(...cookieJson);
-
-
-    // block images
     await page.setRequestInterception(true);
+
+
     page.on('request', async (request) => {
         if (request.resourceType() === 'image') {
             await request.abort();
@@ -62,26 +49,31 @@ async function main() {
         }
     });
 
-    // open the search page
-    if (config.searchQuery.startsWith('#')) {
-        await page.goto(
-            `https://x.com/hashtag/${config.searchQuery.substring(1)}?src=hashtag_click&f=live`
-        );
-    } else {
-        await page.goto(
-            `https://twitter.com/${config.searchQuery}`
-        );
-    }
+
+    let index = 0;
+    nextPage(page, index);
+
+
     await page.waitForNetworkIdle();
 
     
     // Find all profile links on the search page
     let lastClickedIndex = -1;
 
+    let UniqueProfiles = 0;
+
     while (true) {
+        // Scroll the page
+        if (UniqueProfiles >= 5) {
+            console.log("Reached max profiles, stopping");
+            UniqueProfiles = 0;
+            nextPage(page, index + 1);
+        }
+
         await humanLikeScroll(page);
+
         await page.waitForNetworkIdle({ timeout: 3000 }).catch(() => {});
-        // Find all profile links on the current search page
+        // Find all profile links on the current search page, contruct array of links
         const profileLinks = await page.evaluate(() => {
             const links = Array.from(document.querySelectorAll("div[data-testid='primaryColumn'] a[role='link']"));
             return links
@@ -110,7 +102,14 @@ async function main() {
         const linkToClick = profileLinks[nextLinkIndex];
         lastClickedIndex = nextLinkIndex;
 
+        if (await isLinkVisited(linkToClick)) {
+            console.log("Profile already visited, skipping");
+            continue;
+        }
         // Open the profile in a new tab
+
+        await saveVisitedProfile(linkToClick);
+
         const profilePage = await browser.newPage();
         await profilePage.goto(linkToClick);
         await randomPause(1000, 3000);
@@ -128,9 +127,15 @@ async function main() {
         } catch (error) {
             console.log("Message button not found");
             throw new Error("Message button not found");
+        } finally {
+            // Follow the user
+            let followBtn = await profilePage.waitForSelector(
+                "button[aria-label^='Follow']"
+            );
+            await followBtn?.click();
         }
 
-            let randomBrowseTime = Math.floor(Math.random() * (10000 - 3000 + 1) + 2000); // Random time between 5-30 seconds
+            let randomBrowseTime = Math.floor(Math.random() * (5000 - 3000 + 1) + 2000); // Random time between 5-30 seconds
             console.log(`Browsing profile page for ${randomBrowseTime / 1000} seconds`);
             await new Promise(resolve => setTimeout(resolve, randomBrowseTime));
 
@@ -163,7 +168,7 @@ async function main() {
             try {
                 let elem = await msgPage.waitForSelector(
                     `div[data-testid='DmScrollerContainer'] >>> span ::-p-text(${config.message})`,
-                    { timeout: 2500 }
+                    { timeout: 5000 }
                 );
                 let text = await msgPage.waitForSelector(`div[data-testid="tweetText"]`, { timeout: 5000 });
 
@@ -176,6 +181,7 @@ async function main() {
   
             } catch (err) {
                 console.log("Message not found, sending new message");
+                UniqueProfiles += 1;
             }
 
             let msgBox = await msgPage.waitForSelector(

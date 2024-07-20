@@ -1,10 +1,10 @@
 interface Config{
-    searchQuery: string,
+    searchQuery: string[],
     message: string
 }
 
 let config: Config = {
-    searchQuery: "#Bitget",
+    searchQuery: ["#Binance", "#BinanceSmartChain"],
     message: "hey my name is Evan and I’m from the partnerships team at WEEX Global. Have you heard of our exchange before?"
 }
 
