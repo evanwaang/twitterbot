@@ -64,6 +64,8 @@ async function main() {
 
     while (true) {
         // Scroll the page
+
+        // CHANGE THIS 
         if (UniqueProfiles >= 100) {
             console.log("Reached max profiles, stopping");
             UniqueProfiles = 0;
