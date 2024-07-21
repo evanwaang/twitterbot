@@ -64,7 +64,7 @@ async function main() {
 
     while (true) {
         // Scroll the page
-        if (UniqueProfiles >= 5) {
+        if (UniqueProfiles >= 100) {
             console.log("Reached max profiles, stopping");
             UniqueProfiles = 0;
             nextPage(page, index + 1);
@@ -129,6 +129,7 @@ async function main() {
             throw new Error("Message button not found");
         } finally {
             // Follow the user
+            console.log("Following user");
             let followBtn = await profilePage.waitForSelector(
                 "button[aria-label^='Follow']"
             );
