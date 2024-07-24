@@ -6,6 +6,7 @@ import { randomPause } from "./utils/randompause";
 import { humanLikeScroll } from "./utils/scroll";
 import { nextPage } from "./utils/nextPage";
 import config from "./config";
+const fs = require('fs');
 
 import { isLinkVisited, saveVisitedProfile, loadVisitedProfiles } from "./utils/checkProfiles";
 
@@ -26,6 +27,9 @@ const options = {
 };
 
 async function main() {
+
+
+    
 
     // launch browser and block all images 
     const browser = await puppeteer.launch(options);
@@ -61,19 +65,57 @@ async function main() {
     let lastClickedIndex = -1;
 
     let UniqueProfiles = 0;
+    let skips = 0;
+    let consecutiveSkips = 0;
+    let skipCount = 0;
 
     while (true) {
         // Scroll the page
 
+        if (consecutiveSkips >= 5) {
+            console.log("Skipped 5 profiles in a row. Skipping next 20 profiles and scrolling.");
+            skipCount = 20;
+            consecutiveSkips = 0;
+    
+            // Scroll for 7 seconds
+            const scrollDuration = 7000;
+            const startTime = Date.now();
+            while (Date.now() - startTime < scrollDuration) {
+                await humanLikeScroll(page);
+                await page.waitForTimeout(100);
+            }
+    
+            continue;
+        }
+    
+        if (skipCount > 0) {
+            skipCount--;
+            continue;
+        }
+
         // CHANGE THIS 
         if (UniqueProfiles >= 100) {
             console.log("Reached max profiles, stopping");
+
+                // Convert the message to a JSON string
+            const message = {
+                status: "Reached max profiles",
+                timestamp: new Date().toISOString()
+            };
+
+            const jsonMessage = JSON.stringify(message, null, 2);
+
+            // Write the JSON string to a file
+            fs.writeFile("message.json", jsonMessage, (err: any) => {
+                if (err) {
+                    console.error("Error writing file:", err);
+                }
+    });
             UniqueProfiles = 0;
             nextPage(page, index + 1);
         }
 
         await humanLikeScroll(page);
-
         await page.waitForNetworkIdle({ timeout: 3000 }).catch(() => {});
         // Find all profile links on the current search page, contruct array of links
         const profileLinks = await page.evaluate(() => {
@@ -100,19 +142,30 @@ async function main() {
             lastClickedIndex = -1;
             continue;
         }
+        
 
-        const linkToClick = profileLinks[nextLinkIndex];
+      
         lastClickedIndex = nextLinkIndex;
+        const linkToClick = profileLinks[nextLinkIndex];
 
         if (await isLinkVisited(linkToClick)) {
             console.log("Profile already visited, skipping");
+            consecutiveSkips++;
+            lastClickedIndex = nextLinkIndex;  // Update the last clicked index
             continue;
         }
+
+        consecutiveSkips = 0;
+
+        await saveVisitedProfile(linkToClick, 'visited_profiles.json');
+        lastClickedIndex = nextLinkIndex;  // Update the last clicked index
+
         // Open the profile in a new tab
 
-        await saveVisitedProfile(linkToClick);
+        await saveVisitedProfile(linkToClick, 'visited_profiles.json');
 
         const profilePage = await browser.newPage();
+        consecutiveSkips = 0;
         await profilePage.goto(linkToClick);
         await randomPause(1000, 3000);
 
@@ -129,16 +182,9 @@ async function main() {
         } catch (error) {
             console.log("Message button not found");
             throw new Error("Message button not found");
-        } finally {
-            // Follow the user
-            console.log("Following user");
-            let followBtn = await profilePage.waitForSelector(
-                "button[aria-label^='Follow']"
-            );
-            await followBtn?.click();
         }
 
-            let randomBrowseTime = Math.floor(Math.random() * (5000 - 3000 + 1) + 2000); // Random time between 5-30 seconds
+            let randomBrowseTime = Math.floor(Math.random() * Math.random() * (9000 - 2000 + 1) + 2000);// Random time between 5-30 seconds
             console.log(`Browsing profile page for ${randomBrowseTime / 1000} seconds`);
             await new Promise(resolve => setTimeout(resolve, randomBrowseTime));
 
@@ -147,7 +193,6 @@ async function main() {
                 console.log("Message button not found");
                 throw new Error("Message button not found");
             }
-            // You might want to do something with msgBtn here
     
 
 
@@ -201,7 +246,7 @@ async function main() {
                     await randomPause(200, 500);
                 }
                 await msgBox?.type(char);
-                await randomPause(50, 200);  // Variable typing speed
+                await randomPause(50, 100);  // Variable typing speed
             }
 
         

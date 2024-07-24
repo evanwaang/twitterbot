@@ -16,3 +16,9 @@ export async function nextPage(page: any, termIndex: number) {
     }
 
 }
+
+export async function profileFollowers(page: any, profile: string) {
+    await page.goto(
+        `https://twitter.com/${profile}`
+    );
+}
